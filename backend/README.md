@@ -10,7 +10,9 @@ See the [root README](../README.md) for the full project overview.
 | `npm run dev` | Starts the API with hot reload (`tsx watch`) |
 | `npm run build` | Compiles TypeScript to `dist/` |
 | `npm start` | Runs the compiled API (`node dist/server.js`) |
-| `npm run typecheck` | Type-checks without emitting files |
+| `npm run typecheck` | Type-checks source and tests |
+| `npm test` | Runs the integration tests (needs `TEST_DATABASE_URL`) |
+| `npm run test:watch` | Runs tests in watch mode |
 | `npm run migrate` | Applies `migrations/schema.sql` to `DATABASE_URL` |
 
 ## Environment variables
@@ -43,6 +45,17 @@ curl -X POST http://localhost:3001/auth/login-equipe \
 ```
 
 Send the returned token as `Authorization: Bearer <token>` on every other request.
+
+## Tests
+
+Integration tests live in `tests/` and run against a real PostgreSQL database, recreated from `migrations/schema.sql` before the run and truncated before each test. The Asaas API is mocked.
+
+```bash
+createdb oficina_test
+TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/oficina_test npm test
+```
+
+The suite refuses to run on a database whose name does not contain `test`.
 
 ## Main endpoints
 

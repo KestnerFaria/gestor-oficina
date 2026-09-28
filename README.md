@@ -99,3 +99,14 @@ A few problems solved along the way:
 ## Author
 
 **Kestner Faria** — full-stack developer · [GitHub](https://github.com/KestnerFaria)
+
+<img width="1912" height="1006" alt="Tela OS" src="https://github.com/user-attachments/assets/4114dfd4-94ce-4660-8f24-483dbb753a5c" />
+<img width="1907" height="987" alt="Tela inicial" src="https://github.com/user-attachments/assets/61419a79-c918-4c8a-aafd-3903a42b0563" />
+<img width="1896" height="1010" alt="Tela da oficina" src="https://github.com/user-attachments/assets/24d5e780-acf6-4a43-8351-ceaf1e546bd1" />
+<img width="1272" height="790" alt="Servicos e estoques" src="https://github.com/user-attachments/assets/9e5ff1a2-b68a-4eb5-b757-6cc3eee69991" />
+<img width="1272" height="880" alt="Nova OS" src="https://github.com/user-attachments/assets/d3a224ab-80be-43e4-b836-97e3d185eb5c" />
+<img width="1307" height="792" alt="Financeiro" src="https://github.com/user-attachments/assets/18c8db35-cb01-4a30-a364-0bb06ec12d41" />
+<img width="1272" height="810" alt="Despesas da oficina" src="https://github.com/user-attachments/assets/ee9d1888-001a-43a9-a761-4c10496a1360" />
+<img width="1262" height="797" alt="Dados da oficina" src="https://github.com/user-attachments/assets/7e865b74-d25a-42e5-ab5a-ed2e9bca50d9" />
+<img width="1257" height="792" alt="Clientes e veiculos" src="https://github.com/user-attachments/assets/b60ae8bd-f6a5-47b3-a1b4-31cb2bfbe0a9" />
+

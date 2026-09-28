@@ -1,89 +1,67 @@
-# Backend — Sistema de Gestão de Oficina Mecânica
+# Backend — Gestor de Oficina API
 
-API que substitui o `useState` do front-end por persistência real em
-PostgreSQL, com autenticação de verdade (senha com hash, não texto puro)
-e isolamento correto entre oficinas (multi-tenant).
+REST API for the multi-tenant auto repair shop SaaS. Express 5 + TypeScript + PostgreSQL.
+See the [root README](../README.md) for the full project overview.
 
-## Rodando localmente
+## Scripts
 
-1. Instale o PostgreSQL (ou use um banco gratuito de teste no
-   [Railway](https://railway.app) ou [Render](https://render.com) — ambos
-   têm plano free para começar).
+| Command | What it does |
+|---|---|
+| `npm run dev` | Starts the API with hot reload (`tsx watch`) |
+| `npm run build` | Compiles TypeScript to `dist/` |
+| `npm start` | Runs the compiled API (`node dist/server.js`) |
+| `npm run typecheck` | Type-checks without emitting files |
+| `npm run migrate` | Applies `migrations/schema.sql` to `DATABASE_URL` |
 
-2. Copie o arquivo de ambiente e preencha:
-   ```
-   cp .env.example .env
-   ```
-   Edite `.env` com a `DATABASE_URL` do seu banco e um `JWT_SECRET`
-   aleatório (qualquer string longa e única serve).
+## Environment variables
 
-3. Instale as dependências:
-   ```
-   npm install
-   ```
+Copy `.env.example` to `.env`. **Never commit `.env`.**
 
-4. Aplique o schema no banco (cria todas as tabelas):
-   ```
-   npm run migrate
-   ```
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | yes | PostgreSQL connection string |
+| `JWT_SECRET` | yes | Long random string used to sign login tokens |
+| `PORT` | no | Defaults to `3001` |
+| `FRONTEND_URL` | no | Allowed CORS origin |
+| `ASAAS_API_KEY` | billing | Asaas API key (sandbox keys start with `$aact_hmlg_`) |
+| `ASAAS_BASE_URL` | billing | `https://api-sandbox.asaas.com/v3` or the production URL |
+| `ASAAS_WEBHOOK_TOKEN` | billing | Token configured in the Asaas webhook panel |
+| `VALOR_MENSALIDADE` | no | Monthly subscription price in BRL |
 
-5. Suba o servidor:
-   ```
-   npm run dev
-   ```
-   A API sobe em `http://localhost:3001`.
-
-## Testando rapidamente
+## Quick test
 
 ```bash
-# cadastrar uma oficina de teste
+# create a workshop (returns a token)
 curl -X POST http://localhost:3001/auth/cadastrar-oficina \
   -H "Content-Type: application/json" \
-  -d '{"nomeOficina":"Oficina Teste","telefone":"11999990000","nomeUsuario":"Admin","email":"admin@teste.com","senha":"123456"}'
+  -d '{"nomeOficina":"Oficina Teste","cnpj":"00000000000191","telefone":"11999990000","nomeUsuario":"Admin","email":"admin@teste.com","senha":"123456"}'
 
-# fazer login (o token retornado vai no header Authorization: Bearer <token> das próximas chamadas)
+# log in
 curl -X POST http://localhost:3001/auth/login-equipe \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@teste.com","senha":"123456"}'
 ```
 
-## Conectando o front-end (OficinaApp.jsx)
+Send the returned token as `Authorization: Bearer <token>` on every other request.
 
-Hoje o front-end guarda tudo em `useState`. Para conectar de verdade,
-cada `useState` de dados (clientes, veiculos, ordens, etc.) precisa virar
-uma chamada `fetch` para os endpoints correspondentes, e o token do
-login precisa ser guardado (ex: em uma variável de estado no componente
-raiz) e enviado em todo `fetch` no header:
+## Main endpoints
 
-```js
-fetch("http://localhost:3001/clientes", {
-  headers: { Authorization: `Bearer ${token}` }
-})
-```
+| Resource | Routes |
+|---|---|
+| Auth | `POST /auth/cadastrar-oficina`, `/auth/login-equipe`, `/auth/login-cliente` |
+| Workshop & billing | `GET/PUT /oficinas/minha`, `/oficinas/minha/assinatura[/cobrancas\|/configurar\|/cancelar]` |
+| Team | `GET/POST /equipe`, `DELETE /equipe/:id` |
+| Customers, vehicles, services, parts | CRUD on `/clientes`, `/veiculos`, `/servicos`, `/produtos` |
+| Service orders | `GET/POST /ordens`, `PATCH /ordens/:id/{status,mecanico,observacoes,sinal}`, `POST /ordens/:id/finalizar` |
+| Payments & expenses | `/pagamentos`, `/despesas` |
+| Customer portal | `GET /portal/minhas-ordens`, `/portal/meus-pagamentos` |
+| Other | `/auditoria`, `/alertas-whatsapp`, `POST /webhooks/asaas` |
 
-Essa etapa de conectar o front-end às rotas reais é o próximo passo —
-posso fazer isso a seguir, endpoint por endpoint.
+## Deploy (Railway)
 
-## Deploy (colocar no ar de verdade)
+Railway runs `npm install`, `npm run build` and `npm start` automatically. Set the environment variables in the service settings and make sure the service **root directory** is `backend`.
 
-- **Backend**: Railway ou Render. Os dois detectam o `package.json`
-  sozinhos, só precisa configurar as variáveis de ambiente (`DATABASE_URL`,
-  `JWT_SECRET`, `FRONTEND_URL`) no painel deles.
-- **Banco**: os dois também oferecem PostgreSQL gerenciado — clique
-  para criar, copie a `DATABASE_URL` gerada, cole nas variáveis de
-  ambiente do backend.
-- **Front-end**: Vercel ou Netlify (fora do escopo deste backend).
+## Known MVP limitations
 
-## O que ainda é MVP (evoluir antes de vender pra valer)
-
-- **Logo e comprovantes em base64**: hoje aceitos como texto direto no
-  banco (`logo_url`, `comprovante_url` guardam a string base64 inteira).
-  Funciona, mas deixa o banco pesado. Trocar por upload real para um
-  storage (S3, Cloudflare R2, Supabase Storage) e guardar só a URL.
-- **Geração do número da O.S.**: usa contagem simples por oficina.
-  Em uso concorrente pesado (duas O.S. criadas no mesmíssimo instante)
-  pode colidir. Resolver com uma sequence dedicada por oficina se isso
-  virar problema real.
-- **Rate limiting e validação de entrada mais rígida**: ainda não têm
-  proteção contra abuso (ex: `express-rate-limit`) nem validação de
-  schema no corpo das requisições (ex: `zod`).
+- Logos and payment receipts are stored as base64 in the database — move to object storage (S3, R2, Supabase).
+- No request schema validation (e.g. Zod) or rate limiting yet.

@@ -7,6 +7,7 @@ Each shop gets its own isolated workspace to manage customers, vehicles, service
 ![React](https://img.shields.io/badge/React-19-61DAFB)
 ![Node.js](https://img.shields.io/badge/Node.js-Express%205-339933)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1)
+![CI](https://github.com/KestnerFaria/gestor-oficina/actions/workflows/ci.yml/badge.svg)
 
 ## Features
 
@@ -30,7 +31,8 @@ Each shop gets its own isolated workspace to manage customers, vehicles, service
 | Auth | JWT + bcrypt |
 | Payments | Asaas REST API + webhooks |
 | Hosting | Vercel (frontend), Railway (API + database) |
-| CI | GitHub Actions (type check + build) |
+| Tests | Vitest + Supertest against a real PostgreSQL (60 integration tests) |
+| CI | GitHub Actions (type check, tests, lint, build) |
 
 ## Architecture
 
@@ -48,8 +50,10 @@ Each shop gets its own isolated workspace to manage customers, vehicles, service
 .
 ├── backend/
 │   ├── migrations/schema.sql   # tables, enums, triggers, views
+│   ├── tests/                  # integration tests (Vitest + Supertest)
 │   └── src/
-│       ├── server.ts           # app setup and route mounting
+│       ├── app.ts              # Express app and route mounting
+│       ├── server.ts           # env checks + listen
 │       ├── middleware/auth.ts  # JWT, role guards, subscription gate
 │       ├── routes/             # one router per resource
 │       ├── asaas.ts            # billing integration
@@ -79,6 +83,16 @@ npm install
 npm run dev                 # http://localhost:5173
 ```
 
+### Running the tests
+
+The backend has integration tests that hit a real PostgreSQL database. Create an empty database whose name contains `test` (the suite refuses any other name, since it wipes all tables):
+
+```bash
+createdb oficina_test
+cd backend
+TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/oficina_test npm test
+```
+
 ## Engineering notes
 
 A few problems solved along the way:
@@ -92,7 +106,7 @@ A few problems solved along the way:
 ## Roadmap
 
 - [ ] Finish migrating `OficinaApp.jsx` into typed `.tsx` components
-- [ ] Automated tests (Vitest + Supertest)
+- [x] Automated integration tests (Vitest + Supertest), running in CI
 - [ ] Request validation with Zod and rate limiting
 - [ ] Move logos and receipts from base64 to object storage
 

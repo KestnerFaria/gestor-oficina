@@ -79,7 +79,7 @@ export interface OrdemServicoRow {
 export interface AssinaturaRow {
   status: StatusAssinatura;
   valor: number;
-  trial_termina_em: Date | string | null;
+  trial_termina_em: string | null;
   asaas_customer_id: string | null;
   asaas_subscription_id: string | null;
 }

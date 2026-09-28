@@ -1,23 +1,36 @@
-const express = require("express");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const db = require("../db");
-const { registrarAuditoria } = require("../utils/auditLog");
-const { criarClienteAsaas, criarAssinaturaAsaas } = require("../asaas");
+import { Router } from "express";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import db from "../db";
+import { registrarAuditoria } from "../utils/auditLog";
+import { criarClienteAsaas, criarAssinaturaAsaas } from "../asaas";
+import { dataDaqui } from "../utils/datas";
+import type { AuthPayload, ClienteRow, UsuarioRow } from "../types";
 
-const router = express.Router();
+const router = Router();
 const SALT_ROUNDS = 10;
 const DIAS_TESTE_GRATIS = 10;
 const VALOR_MENSALIDADE = Number(process.env.VALOR_MENSALIDADE || 100);
 
-function gerarToken(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "12h" });
+function gerarToken(payload: AuthPayload): string {
+  return jwt.sign(payload, process.env.JWT_SECRET as string, { expiresIn: "12h" });
 }
 
-function dataDaqui(dias) {
-  const d = new Date();
-  d.setDate(d.getDate() + dias);
-  return d.toISOString().slice(0, 10);
+
+interface CadastroOficinaBody {
+  nomeOficina?: string;
+  cnpj?: string;
+  telefone?: string;
+  endereco?: string;
+  logo?: string;
+  nomeUsuario?: string;
+  email?: string;
+  senha?: string;
+}
+
+interface LoginBody {
+  email?: string;
+  senha?: string;
 }
 
 // ------------------------------------------------------------
@@ -26,13 +39,15 @@ function dataDaqui(dias) {
 // grátis configurados no Asaas, e retorna logado.
 // ------------------------------------------------------------
 router.post("/cadastrar-oficina", async (req, res) => {
-  const { nomeOficina, cnpj, telefone, endereco, logo, nomeUsuario, email, senha } = req.body;
+  const { nomeOficina, cnpj, telefone, endereco, logo, nomeUsuario, email, senha } = req.body as CadastroOficinaBody;
 
   if (!nomeOficina || !telefone || !nomeUsuario || !email || !senha) {
     return res.status(400).json({ erro: "preencha todos os campos obrigatórios." });
   }
   if (!cnpj) {
-    return res.status(400).json({ erro: "informe o CNPJ (ou CPF, se for MEI) — é necessário para configurar a cobrança após o período de teste." });
+    return res.status(400).json({
+      erro: "informe o CNPJ (ou CPF, se for MEI) — é necessário para configurar a cobrança após o período de teste.",
+    });
   }
 
   const existente = await db.query("SELECT id FROM usuarios WHERE email = $1", [email]);
@@ -41,24 +56,25 @@ router.post("/cadastrar-oficina", async (req, res) => {
   }
 
   const client = await db.pool.connect();
-  let oficinaId, usuarioCriado;
+  let oficinaId: number;
+  let usuarioCriado: Pick<UsuarioRow, "id" | "nome" | "email" | "perfil">;
   try {
     await client.query("BEGIN");
 
-    const oficina = await client.query(
+    const oficina = await client.query<{ id: number }>(
       `INSERT INTO oficinas (nome, cnpj, telefone, endereco, logo_url)
        VALUES ($1, $2, $3, $4, $5) RETURNING id, nome, cnpj, telefone, endereco, logo_url`,
       [nomeOficina, cnpj, telefone, endereco || null, logo || null]
     );
-    oficinaId = oficina.rows[0].id;
+    oficinaId = oficina.rows[0]!.id;
 
     const senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
-    const usuario = await client.query(
+    const usuario = await client.query<Pick<UsuarioRow, "id" | "nome" | "email" | "perfil">>(
       `INSERT INTO usuarios (oficina_id, nome, email, senha_hash, perfil)
        VALUES ($1, $2, $3, $4, 'admin') RETURNING id, nome, email, perfil`,
       [oficinaId, nomeUsuario, email, senhaHash]
     );
-    usuarioCriado = usuario.rows[0];
+    usuarioCriado = usuario.rows[0]!;
 
     // linha de assinatura já criada, mesmo que o Asaas falhe abaixo —
     // assim dá pra tentar de novo depois pela tela "dados da oficina"
@@ -97,20 +113,24 @@ router.post("/cadastrar-oficina", async (req, res) => {
     );
     await registrarAuditoria(oficinaId, usuarioCriado.id, "configurou", "assinatura", `${DIAS_TESTE_GRATIS} dias de teste grátis iniciados`);
   } catch (e) {
-    console.error("falha ao configurar assinatura no Asaas:", e.message);
+    console.error("falha ao configurar assinatura no Asaas:", (e as Error).message);
     // não derruba o cadastro — só fica marcado como pendente_configuracao
   }
 
   const token = gerarToken({ tipo: "equipe", id: usuarioCriado.id, oficinaId, perfil: "admin" });
-  res.status(201).json({ token, usuario: usuarioCriado, oficina: { id: oficinaId, nome: nomeOficina, cnpj, telefone, endereco, logo_url: logo } });
+  res.status(201).json({
+    token,
+    usuario: usuarioCriado,
+    oficina: { id: oficinaId, nome: nomeOficina, cnpj, telefone, endereco, logo_url: logo },
+  });
 });
 
 // ------------------------------------------------------------
 // POST /auth/login-equipe  { email, senha }
 // ------------------------------------------------------------
 router.post("/login-equipe", async (req, res) => {
-  const { email, senha } = req.body;
-  const resultado = await db.query(
+  const { email, senha } = req.body as LoginBody;
+  const resultado = await db.query<UsuarioRow>(
     "SELECT id, oficina_id, nome, email, senha_hash, perfil FROM usuarios WHERE email = $1 AND ativo = TRUE",
     [email]
   );
@@ -131,8 +151,8 @@ router.post("/login-equipe", async (req, res) => {
 // POST /auth/login-cliente  { email, senha }
 // ------------------------------------------------------------
 router.post("/login-cliente", async (req, res) => {
-  const { email, senha } = req.body;
-  const resultado = await db.query(
+  const { email, senha } = req.body as LoginBody;
+  const resultado = await db.query<ClienteRow>(
     "SELECT id, oficina_id, nome, email, senha_hash FROM clientes WHERE email = $1",
     [email]
   );
@@ -149,4 +169,4 @@ router.post("/login-cliente", async (req, res) => {
   });
 });
 
-module.exports = router;
+export default router;

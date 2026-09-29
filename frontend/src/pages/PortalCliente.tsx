@@ -1,20 +1,13 @@
 import type { Oficina, Ordem, Pagamento } from "../api";
 import { Badge } from "../components/ui";
 import { FORMAS, STATUS_LABEL, STATUS_TONE, type Tom } from "../constants";
+import { situacaoDoPagamento, type SituacaoPagamento } from "../regras";
 import type { Sessao } from "../sessao";
 import { btnBase, C, FONTS } from "../styles/theme";
 import { fmtData, hojeISO } from "../utils/datas";
 
-type Situacao = "pago" | "pendente" | "atrasado";
-
-const TOM_SITUACAO: Record<Situacao, Tom> = { pago: "ok", pendente: "warn", atrasado: "danger" };
-const LABEL_SITUACAO: Record<Situacao, string> = { pago: "pago", pendente: "a vencer", atrasado: "atrasado" };
-
-// Pago, a vencer ou atrasado, comparando o vencimento com a data de hoje
-export function situacaoDoPagamento(pagamento: Pick<Pagamento, "pagoEm" | "vencimento">, hoje: string): Situacao {
-  if (pagamento.pagoEm) return "pago";
-  return pagamento.vencimento < hoje ? "atrasado" : "pendente";
-}
+const TOM_SITUACAO: Record<SituacaoPagamento, Tom> = { pago: "ok", pendente: "warn", atrasado: "danger" };
+const LABEL_SITUACAO: Record<SituacaoPagamento, string> = { pago: "pago", pendente: "a vencer", atrasado: "atrasado" };
 
 interface PortalClienteProps {
   cliente: Extract<Sessao, { tipo: "cliente" }>["cliente"];

@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { api } from "./api";
+import { agoraISO, fmtData, fmtDataHora, hojeISO } from "./utils/datas";
+import { CATEGORIAS_DESPESA, FORMAS, STATUS_LABEL, STATUS_TONE } from "./constants";
 
 // ---------- estilo / tokens ----------
 const FONTS = `
@@ -97,35 +99,6 @@ const btnBase = {
 };
 
 const btnPrimary = { ...btnBase, background: C.accent, borderColor: C.accent, color: "#fff" };
-
-const FORMAS = {
-  dinheiro: { label: "dinheiro", exigeDoc: false, rotuloDoc: "" },
-  cartao: { label: "cartão", exigeDoc: true, rotuloDoc: "número da nota / NSU" },
-  pix: { label: "PIX", exigeDoc: true, rotuloDoc: "ID da transação" },
-};
-
-const CATEGORIAS_DESPESA = {
-  aluguel: "aluguel", energia: "energia", agua: "água", salarios: "salários",
-  fornecedores: "fornecedores", internet: "internet/telefone", manutencao: "manutenção", outros: "outros",
-};
-
-const STATUS_LABEL = {
-  orcamento: "orçamento", aberta: "aberta", em_andamento: "em andamento",
-  aguardando_peca: "aguard. peça", concluida: "concluída", entregue: "entregue", cancelada: "cancelada",
-};
-const STATUS_TONE = {
-  orcamento: "muted", aberta: "accent", em_andamento: "accent",
-  aguardando_peca: "warn", concluida: "ok", entregue: "ok", cancelada: "danger",
-};
-
-function todayISO() { return new Date().toISOString().slice(0, 10); }
-function agoraISO() { return new Date().toISOString().slice(0, 19); }
-function fmtDataHora(iso) {
-  if (!iso) return "-";
-  const [d, h] = iso.split("T");
-  return `${d.split("-").reverse().join("/")} ${h ? h.slice(0, 5) : ""}`;
-}
-function fmtData(iso) { return iso ? iso.split("-").reverse().join("/") : "-"; }
 
 // ============================================================
 // APP RAIZ — autenticação + carregamento de dados via API
@@ -1743,8 +1716,8 @@ function linkWhatsapp(telefone, mensagem) {
 function Dashboard({ clientes, veiculos, ordens, pagamentos, servicos, oficina, usuario, actions, alertas, onImprimir, onAbrir }) {
   const abertas = ordens.filter((o) => !["concluida", "entregue", "cancelada"].includes(o.status)).length;
   const emAndamento = ordens.filter((o) => o.status === "em_andamento").length;
-  const faturamentoHoje = pagamentos.filter((p) => p.pagoEm === todayISO()).reduce((s, p) => s + p.valor, 0);
-  const atrasados = pagamentos.filter((p) => !p.pagoEm && p.vencimento < todayISO()).length;
+  const faturamentoHoje = pagamentos.filter((p) => p.pagoEm === hojeISO()).reduce((s, p) => s + p.valor, 0);
+  const atrasados = pagamentos.filter((p) => !p.pagoEm && p.vencimento < hojeISO()).length;
 
   const clienteNome = (id) => clientes.find((c) => c.id === id)?.nome || "-";
   const veiculoInfo = (id) => {
@@ -2495,7 +2468,7 @@ function Financeiro({ usuario, actions, usuarios, pagamentos, meusPagamentos, or
   const [baixando, setBaixando] = useState(null); // pagamento sendo marcado como pago
   const [baixa, setBaixa] = useState({ forma: "dinheiro", documento: "", comprovante: null });
   const [erro, setErro] = useState("");
-  const hoje = todayISO();
+  const hoje = hojeISO();
 
   const nomeUsuario = (id) => usuarios.find((u) => u.id === id)?.nome || "-";
   const clienteDaOS = (id) => {
@@ -2894,7 +2867,7 @@ function Despesas({ usuario, actions, despesas, meusPagamentos }) {
   const minhasDespesas = despesas;
   const totalMes = minhasDespesas.reduce((s, d) => s + d.valor, 0);
 
-  const hoje = todayISO();
+  const hoje = hojeISO();
   const mesAtual = hoje.slice(0, 7);
   const faturamentoMes = meusPagamentos.filter((p) => p.pagoEm && p.pagoEm.slice(0, 7) === mesAtual).reduce((s, p) => s + p.valor, 0);
 
@@ -3034,7 +3007,7 @@ function PortalCliente({ cliente, oficina, ordens, pagamentos, onSair }) {
   const minhasOrdens = ordens;
   const meusPagamentos = pagamentos;
   const veiculosUnicos = [...new Map(minhasOrdens.map((o) => [o.veiculoPlaca, { modelo: o.veiculoModelo, ano: o.veiculoAno, placa: o.veiculoPlaca }])).values()];
-  const hoje = todayISO();
+  const hoje = hojeISO();
 
   const toneMap = { pago: "ok", pendente: "warn", atrasado: "danger" };
   const labelMap = { pago: "pago", pendente: "a vencer", atrasado: "atrasado" };

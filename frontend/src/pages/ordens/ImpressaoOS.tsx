@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from "react";
 import type { Cliente, Id, Oficina, Ordem, Pagamento, Produto, Servico, Usuario, Veiculo } from "../../api";
 import { Badge, Plate } from "../../components/ui";
 import { FORMAS, STATUS_LABEL, STATUS_TONE } from "../../constants";
+import { itensDaOrdem } from "../../regras";
 import { btnBase, btnPrimary, C, FONTS } from "../../styles/theme";
 import { agoraISO, fmtData, fmtDataHora } from "../../utils/datas";
 
@@ -35,8 +36,8 @@ export function ImpressaoOS({ os, oficina, cliente, veiculo, usuarios, servicos,
   const fiscal = formato === "fiscal";
 
   const nomeUsuario = (id: Id | null) => usuarios.find((u) => u.id === id)?.nome || "-";
-  const servicosDaOS = servicos.filter((s) => os.servicosIds?.includes(s.id));
-  const pecasDaOS = os.pecasUtilizadas || [];
+  // preço congelado no dia da O.S. (o que foi cobrado), não o do catálogo hoje
+  const itens = itensDaOrdem(os, servicos, produtos);
 
   return (
     <div
@@ -162,28 +163,18 @@ export function ImpressaoOS({ os, oficina, cliente, veiculo, usuarios, servicos,
           </div>
 
           {/* serviços e peças */}
-          {(servicosDaOS.length > 0 || pecasDaOS.length > 0) && (
+          {itens.length > 0 && (
             <div style={{ marginBottom: 18 }}>
               <div style={tituloSecao}>serviços e peças</div>
-              {servicosDaOS.map((s) => (
-                <div key={`serv-${s.id}`} style={linha}>
-                  <span style={rot}>{s.nome}</span>
-                  <span>R$ {s.preco.toLocaleString("pt-BR")}</span>
+              {itens.map((item) => (
+                <div key={item.chave} style={linha}>
+                  <span style={rot}>
+                    {item.nome}
+                    {item.quantidade > 1 ? ` (${item.quantidade}x)` : ""}
+                  </span>
+                  <span>R$ {item.valor.toLocaleString("pt-BR")}</span>
                 </div>
               ))}
-              {pecasDaOS.map((u) => {
-                const produto = produtos.find((p) => p.id === u.produtoId);
-                if (!produto) return null;
-                return (
-                  <div key={`peca-${produto.id}`} style={linha}>
-                    <span style={rot}>
-                      {produto.nome}
-                      {u.quantidade > 1 ? ` (${u.quantidade}x)` : ""}
-                    </span>
-                    <span>R$ {(produto.precoVenda * u.quantidade).toLocaleString("pt-BR")}</span>
-                  </div>
-                );
-              })}
             </div>
           )}
 

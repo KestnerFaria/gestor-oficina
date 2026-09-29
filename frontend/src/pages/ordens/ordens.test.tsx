@@ -245,3 +245,108 @@ describe("ImpressaoOS", () => {
     expect(screen.getByText(/doc E123/)).toBeTruthy();
   });
 });
+
+// Regressão: a tela e a impressão usavam o preço ATUAL do catálogo. Depois
+// de um reajuste, a O.S. antiga mostrava o item com preço novo e o total
+// com o preço antigo; e itens que saíram do catálogo sumiam da O.S.
+describe("preços congelados na O.S.", () => {
+  // O.S. aberta quando a troca de óleo custava R$ 80 e o filtro R$ 30
+  const osComItens = {
+    ...osBase,
+    valorTotal: 140,
+    sinal: 0,
+    servicosIds: [1, 2],
+    itensServicos: [
+      { servicoId: 1, nome: "Troca de óleo", preco: 80 },
+      { servicoId: 2, nome: "Alinhamento (saiu do catálogo)", preco: 0 },
+    ],
+    pecasUtilizadas: [{ produtoId: 5, nome: "Filtro", quantidade: 2, precoUnitario: 30 }],
+  } as unknown as Ordem;
+  // catálogo de hoje: óleo reajustado, filtro mais caro, alinhamento excluído
+  const servicosHoje = [{ ...servico, preco: 100 }];
+  const produtosHoje = [{ ...filtro, precoVenda: 45 }];
+
+  it("a impressão mostra o preço do dia da O.S.", () => {
+    render(
+      <ImpressaoOS
+        os={osComItens}
+        oficina={null}
+        cliente={cliente}
+        veiculo={veiculo}
+        usuarios={[admin]}
+        servicos={servicosHoje}
+        produtos={produtosHoje}
+        pagamentos={[]}
+        onFechar={() => {}}
+      />
+    );
+    expect(screen.getByText("R$ 80")).toBeTruthy();
+    expect(screen.getByText("R$ 60")).toBeTruthy(); // 2 x 30
+    expect(screen.queryByText("R$ 100")).toBeNull();
+    expect(screen.queryByText("R$ 90")).toBeNull();
+    expect(screen.getByText("Alinhamento (saiu do catálogo)")).toBeTruthy();
+  });
+
+  it("o detalhe da O.S. mostra o preço do dia da O.S.", () => {
+    render(
+      <DetalheOS
+        usuario={admin}
+        os={osComItens}
+        cliente={cliente}
+        veiculo={veiculo}
+        servicos={servicosHoje}
+        produtos={produtosHoje}
+        equipe={[admin]}
+        ordens={[osComItens]}
+        actions={{
+          mudarStatusOrdem: vi.fn(),
+          excluirOrdem: vi.fn(),
+          salvarSinalOrdem: vi.fn(),
+          salvarMecanicoOrdem: vi.fn(),
+          salvarObservacoesOrdem: vi.fn(),
+          finalizarOrdem: vi.fn(),
+        }}
+        onVoltar={() => {}}
+        onImprimir={() => {}}
+      />
+    );
+    expect(screen.getByText("R$ 80")).toBeTruthy();
+    expect(screen.getByText("R$ 60")).toBeTruthy();
+    expect(screen.queryByText("R$ 100")).toBeNull();
+  });
+});
+
+// Regressão: erros ao salvar sinal, mecânico, observações, status ou ao
+// excluir só apareciam dentro do painel de finalização — fora dele, a
+// ação falhava e a tela não dizia nada.
+describe("erros no detalhe da O.S.", () => {
+  it("mostra o erro quando não consegue salvar o sinal", async () => {
+    const acoesComErro = {
+      mudarStatusOrdem: vi.fn(),
+      excluirOrdem: vi.fn(),
+      salvarSinalOrdem: vi.fn().mockRejectedValue(new Error("a assinatura desta oficina está atrasada.")),
+      salvarMecanicoOrdem: vi.fn(),
+      salvarObservacoesOrdem: vi.fn(),
+      finalizarOrdem: vi.fn(),
+    };
+    render(
+      <DetalheOS
+        usuario={admin}
+        os={osBase}
+        cliente={cliente}
+        veiculo={veiculo}
+        servicos={[]}
+        produtos={[]}
+        equipe={[admin]}
+        ordens={[osBase]}
+        actions={acoesComErro}
+        onVoltar={() => {}}
+        onImprimir={() => {}}
+      />
+    );
+
+    await userEvent.setup().click(screen.getByText("salvar sinal"));
+
+    expect(await screen.findByText("a assinatura desta oficina está atrasada.")).toBeTruthy();
+  });
+});

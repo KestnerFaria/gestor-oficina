@@ -70,7 +70,8 @@ export function NovaOS({ clientes, veiculos, servicos, produtos, equipe, actions
 
   async function salvarVeiculo() {
     try {
-      const novo = await actions.criarVeiculo({ clienteId: Number(clienteId), ...nv, ano: Number(nv.ano) });
+      // ano em branco vai como null, igual à tela de clientes
+      const novo = await actions.criarVeiculo({ clienteId: Number(clienteId), ...nv, ano: Number(nv.ano) || null });
       setVeiculoId(String(novo.id));
       setNovoVeiculo(false);
       setNv(VEICULO_VAZIO);

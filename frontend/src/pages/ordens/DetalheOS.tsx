@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Cliente, Comprovante, FormaPagamento, Id, Ordem, Produto, Servico, StatusOS, Usuario, Veiculo } from "../../api";
 import { Badge, CamposComprovante, Field, Plate, SeletorForma } from "../../components/ui";
 import { FORMAS, STATUS_LABEL, STATUS_TONE } from "../../constants";
+import { itensDaOrdem } from "../../regras";
 import { btnBase, btnPrimary, C, FONTS, inputStyle } from "../../styles/theme";
 import { lerArquivo } from "../../utils/arquivos";
 import { fmtData } from "../../utils/datas";
@@ -65,17 +66,15 @@ export function DetalheOS({ usuario, os, cliente, veiculo, servicos, produtos, e
 
   const podeExcluir = usuario.perfil === "admin";
 
-  const nomesServicos = servicos.filter((s) => osAtual.servicosIds?.includes(s.id));
-  const pecasUsadas = (osAtual.pecasUtilizadas || []).flatMap((u) => {
-    const produto = produtos.find((p) => p.id === u.produtoId);
-    return produto ? [{ ...u, produto }] : [];
-  });
+  // preço congelado no dia da O.S. (o que foi cobrado), não o do catálogo hoje
+  const itens = itensDaOrdem(osAtual, servicos, produtos);
   const valorRestante = osAtual.valorTotal - (osAtual.sinal || 0);
   const finalizavel = !["entregue", "cancelada"].includes(osAtual.status);
 
   // roda uma ação da API e mostra a mensagem se der erro
   async function executar(acao: () => Promise<void>) {
     try {
+      setErro("");
       await acao();
     } catch (e) {
       setErro(mensagemDeErro(e));
@@ -186,6 +185,13 @@ export function DetalheOS({ usuario, os, cliente, veiculo, servicos, produtos, e
           </div>
         )}
 
+        {/* erros de salvar mecânico, observações, sinal, status ou exclusão.
+            (antes só apareciam dentro do painel de finalização, e essas
+            ações falhavam em silêncio) */}
+        {erro && !showFinalizar && (
+          <div style={{ background: C.dangerBg, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: C.danger }}>{erro}</div>
+        )}
+
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: 22, marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
             <div>
@@ -205,22 +211,16 @@ export function DetalheOS({ usuario, os, cliente, veiculo, servicos, produtos, e
 
           <div style={{ fontSize: 13, color: C.ink, background: C.bg, padding: "10px 12px", borderRadius: 6, marginBottom: 16 }}>{osAtual.descricao}</div>
 
-          {(nomesServicos.length > 0 || pecasUsadas.length > 0) && (
+          {itens.length > 0 && (
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: 0.4, fontWeight: 600, marginBottom: 6 }}>serviços e peças</div>
-              {nomesServicos.map((s) => (
-                <div key={`serv-${s.id}`} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0" }}>
-                  <span style={{ color: C.inkSoft }}>{s.nome}</span>
-                  <span>R$ {s.preco.toLocaleString("pt-BR")}</span>
-                </div>
-              ))}
-              {pecasUsadas.map((u) => (
-                <div key={`peca-${u.produto.id}`} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0" }}>
+              {itens.map((item) => (
+                <div key={item.chave} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0" }}>
                   <span style={{ color: C.inkSoft }}>
-                    {u.produto.nome}
-                    {u.quantidade > 1 ? ` (${u.quantidade}x)` : ""}
+                    {item.nome}
+                    {item.quantidade > 1 ? ` (${item.quantidade}x)` : ""}
                   </span>
-                  <span>R$ {(u.produto.precoVenda * u.quantidade).toLocaleString("pt-BR")}</span>
+                  <span>R$ {item.valor.toLocaleString("pt-BR")}</span>
                 </div>
               ))}
             </div>

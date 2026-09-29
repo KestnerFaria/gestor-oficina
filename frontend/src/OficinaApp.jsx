@@ -1,131 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
 import { api } from "./api";
-
-// ---------- estilo / tokens ----------
-const FONTS = `
-@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap');
-@media print {
-  body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
-  .print-area {
-    position: absolute !important; top: 0 !important; left: 0 !important;
-    width: 100% !important; margin: 0 !important; border: none !important;
-    padding: 0 !important; background: #fff !important; box-shadow: none !important;
-  }
-  .no-print { display: none !important; }
-  body { background: #fff !important; }
-}
-`;
-
-const C = {
-  bg: "#F1EFE8",
-  surface: "#FFFFFF",
-  ink: "#20242A",
-  inkSoft: "#5B6169",
-  muted: "#8A8F97",
-  border: "#DCD8CE",
-  accent: "#E0611F",
-  accentDark: "#A9430F",
-  accentBg: "#FCE6D6",
-  ok: "#2F6E4F",
-  okBg: "#E1EFE6",
-  warn: "#B8862E",
-  warnBg: "#FBEFD8",
-  danger: "#B23A2E",
-  dangerBg: "#F8E1DD",
-  steel: "#3A4048",
-};
-
-function Badge({ children, tone = "muted" }) {
-  const map = {
-    ok: { bg: C.okBg, fg: C.ok },
-    warn: { bg: C.warnBg, fg: C.warn },
-    danger: { bg: C.dangerBg, fg: C.danger },
-    accent: { bg: C.accentBg, fg: C.accentDark },
-    muted: { bg: "#ECEAE3", fg: C.inkSoft },
-  };
-  const t = map[tone];
-  return (
-    <span style={{ background: t.bg, color: t.fg, fontFamily: "JetBrains Mono, monospace", fontSize: 11, fontWeight: 500, letterSpacing: 0.3, textTransform: "uppercase", padding: "3px 9px", borderRadius: 3, display: "inline-block" }}>
-      {children}
-    </span>
-  );
-}
-
-function Plate({ placa }) {
-  return (
-    <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, fontWeight: 500, color: C.ink, background: "#fff", border: `1.5px solid ${C.steel}`, borderRadius: 3, padding: "2px 7px", letterSpacing: 1 }}>
-      {placa}
-    </span>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <div style={{ marginBottom: 14 }}>
-      <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: C.inkSoft, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4 }}>
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-const inputStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "9px 11px",
-  fontSize: 14,
-  fontFamily: "Inter, sans-serif",
-  border: `1px solid ${C.border}`,
-  borderRadius: 5,
-  background: "#fff",
-  color: C.ink,
-  outline: "none",
-};
-
-const btnBase = {
-  fontFamily: "Inter, sans-serif",
-  fontSize: 13,
-  fontWeight: 500,
-  padding: "9px 16px",
-  borderRadius: 5,
-  cursor: "pointer",
-  border: `1px solid ${C.border}`,
-  background: "#fff",
-  color: C.ink,
-};
-
-const btnPrimary = { ...btnBase, background: C.accent, borderColor: C.accent, color: "#fff" };
-
-const FORMAS = {
-  dinheiro: { label: "dinheiro", exigeDoc: false, rotuloDoc: "" },
-  cartao: { label: "cartão", exigeDoc: true, rotuloDoc: "número da nota / NSU" },
-  pix: { label: "PIX", exigeDoc: true, rotuloDoc: "ID da transação" },
-};
-
-const CATEGORIAS_DESPESA = {
-  aluguel: "aluguel", energia: "energia", agua: "água", salarios: "salários",
-  fornecedores: "fornecedores", internet: "internet/telefone", manutencao: "manutenção", outros: "outros",
-};
-
-const STATUS_LABEL = {
-  orcamento: "orçamento", aberta: "aberta", em_andamento: "em andamento",
-  aguardando_peca: "aguard. peça", concluida: "concluída", entregue: "entregue", cancelada: "cancelada",
-};
-const STATUS_TONE = {
-  orcamento: "muted", aberta: "accent", em_andamento: "accent",
-  aguardando_peca: "warn", concluida: "ok", entregue: "ok", cancelada: "danger",
-};
-
-function todayISO() { return new Date().toISOString().slice(0, 10); }
-function agoraISO() { return new Date().toISOString().slice(0, 19); }
-function fmtDataHora(iso) {
-  if (!iso) return "-";
-  const [d, h] = iso.split("T");
-  return `${d.split("-").reverse().join("/")} ${h ? h.slice(0, 5) : ""}`;
-}
-function fmtData(iso) { return iso ? iso.split("-").reverse().join("/") : "-"; }
+import { agoraISO, fmtData, fmtDataHora, hojeISO } from "./utils/datas";
+import { CATEGORIAS_DESPESA, FORMAS, STATUS_LABEL, STATUS_TONE } from "./constants";
+import { btnBase, btnPrimary, C, FONTS, inputStyle } from "./styles/theme";
+import { Badge, CamposComprovante, Field, ModalSelecao, Plate, SeletorForma, StatCard } from "./components/ui";
 
 // ============================================================
 // APP RAIZ — autenticação + carregamento de dados via API
@@ -1743,8 +1621,8 @@ function linkWhatsapp(telefone, mensagem) {
 function Dashboard({ clientes, veiculos, ordens, pagamentos, servicos, oficina, usuario, actions, alertas, onImprimir, onAbrir }) {
   const abertas = ordens.filter((o) => !["concluida", "entregue", "cancelada"].includes(o.status)).length;
   const emAndamento = ordens.filter((o) => o.status === "em_andamento").length;
-  const faturamentoHoje = pagamentos.filter((p) => p.pagoEm === todayISO()).reduce((s, p) => s + p.valor, 0);
-  const atrasados = pagamentos.filter((p) => !p.pagoEm && p.vencimento < todayISO()).length;
+  const faturamentoHoje = pagamentos.filter((p) => p.pagoEm === hojeISO()).reduce((s, p) => s + p.valor, 0);
+  const atrasados = pagamentos.filter((p) => !p.pagoEm && p.vencimento < hojeISO()).length;
 
   const clienteNome = (id) => clientes.find((c) => c.id === id)?.nome || "-";
   const veiculoInfo = (id) => {
@@ -1914,38 +1792,9 @@ function Dashboard({ clientes, veiculos, ordens, pagamentos, servicos, oficina, 
   );
 }
 
-function StatCard({ label, value, tone }) {
-  const bg = tone === "danger" ? C.dangerBg : tone === "ok" ? C.okBg : "#fff";
-  const fg = tone === "danger" ? C.danger : tone === "ok" ? C.ok : C.ink;
-  return (
-    <div style={{ background: bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px" }}>
-      <div style={{ fontSize: 12, color: tone ? fg : C.inkSoft, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.3 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 600, marginTop: 6, color: fg, fontFamily: "Oswald, sans-serif" }}>{value}</div>
-    </div>
-  );
-}
 
 // ---------- nova O.S. ----------
 // ---------- modal de seleção (serviços / peças) ----------
-function ModalSelecao({ titulo, onFechar, children }) {
-  return (
-    <div
-      onClick={onFechar}
-      style={{ position: "fixed", inset: 0, background: "rgba(32,36,42,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 20 }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 460, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 50px rgba(0,0,0,0.25)" }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 16, fontWeight: 600, color: C.ink }}>{titulo}</div>
-          <button onClick={onFechar} style={{ ...btnBase, padding: "4px 10px", fontSize: 12 }}>fechar</button>
-        </div>
-        <div style={{ overflowY: "auto", padding: "8px 0" }}>{children}</div>
-      </div>
-    </div>
-  );
-}
 
 function NovaOS({ usuario, actions, clientes, veiculos, servicos, produtos, equipe, ordens, onImprimir }) {
   const [clienteId, setClienteId] = useState("");
@@ -2495,7 +2344,7 @@ function Financeiro({ usuario, actions, usuarios, pagamentos, meusPagamentos, or
   const [baixando, setBaixando] = useState(null); // pagamento sendo marcado como pago
   const [baixa, setBaixa] = useState({ forma: "dinheiro", documento: "", comprovante: null });
   const [erro, setErro] = useState("");
-  const hoje = todayISO();
+  const hoje = hojeISO();
 
   const nomeUsuario = (id) => usuarios.find((u) => u.id === id)?.nome || "-";
   const clienteDaOS = (id) => {
@@ -2728,64 +2577,8 @@ function Financeiro({ usuario, actions, usuarios, pagamentos, meusPagamentos, or
 }
 
 // seletor de forma de pagamento
-function SeletorForma({ valor, onChange }) {
-  return (
-    <div>
-      <div style={{ fontSize: 12, fontWeight: 500, color: C.inkSoft, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.4 }}>
-        forma de pagamento
-      </div>
-      <div style={{ display: "flex", gap: 8 }}>
-        {Object.entries(FORMAS).map(([k, cfg]) => (
-          <button key={k} onClick={() => onChange(k)}
-            style={{
-              ...btnBase, flex: 1, padding: "10px 0", fontSize: 13,
-              background: valor === k ? C.accent : "#fff",
-              borderColor: valor === k ? C.accent : C.border,
-              color: valor === k ? "#fff" : C.ink,
-              fontWeight: valor === k ? 600 : 500,
-            }}>
-            {cfg.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // campos de comprovante (cartão / pix)
-function CamposComprovante({ forma, documento, comprovante, onDocumento, onArquivo }) {
-  const cfg = FORMAS[forma];
-  return (
-    <div style={{ marginTop: 14 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: C.inkSoft, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4 }}>
-            {cfg.rotuloDoc}
-          </label>
-          <input style={inputStyle} value={documento} onChange={(e) => onDocumento(e.target.value)}
-            placeholder={forma === "pix" ? "Ex: E1234567820260810" : "Ex: 004512"} />
-        </div>
-        <div>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: C.inkSoft, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4 }}>
-            anexar comprovante
-          </label>
-          <input type="file" accept="image/*,application/pdf"
-            onChange={(e) => onArquivo(e.target.files?.[0])}
-            style={{ ...inputStyle, padding: "7px 8px", fontSize: 12 }} />
-        </div>
-      </div>
-      {comprovante && (
-        <div style={{ marginTop: 8, fontSize: 12, color: C.ok, display: "flex", alignItems: "center", gap: 8 }}>
-          <span>anexado: {comprovante.nome}</span>
-          <a href={comprovante.dados} download={comprovante.nome} style={{ color: C.accentDark, textDecoration: "underline" }}>ver</a>
-        </div>
-      )}
-      <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>
-        informe o {cfg.rotuloDoc} ou anexe o comprovante — pelo menos um dos dois.
-      </div>
-    </div>
-  );
-}
 
 // ---------- auditoria ----------
 // ---------- equipe / acessos (máximo 3 por oficina) ----------
@@ -2894,7 +2687,7 @@ function Despesas({ usuario, actions, despesas, meusPagamentos }) {
   const minhasDespesas = despesas;
   const totalMes = minhasDespesas.reduce((s, d) => s + d.valor, 0);
 
-  const hoje = todayISO();
+  const hoje = hojeISO();
   const mesAtual = hoje.slice(0, 7);
   const faturamentoMes = meusPagamentos.filter((p) => p.pagoEm && p.pagoEm.slice(0, 7) === mesAtual).reduce((s, p) => s + p.valor, 0);
 
@@ -3034,7 +2827,7 @@ function PortalCliente({ cliente, oficina, ordens, pagamentos, onSair }) {
   const minhasOrdens = ordens;
   const meusPagamentos = pagamentos;
   const veiculosUnicos = [...new Map(minhasOrdens.map((o) => [o.veiculoPlaca, { modelo: o.veiculoModelo, ano: o.veiculoAno, placa: o.veiculoPlaca }])).values()];
-  const hoje = todayISO();
+  const hoje = hojeISO();
 
   const toneMap = { pago: "ok", pendente: "warn", atrasado: "danger" };
   const labelMap = { pago: "pago", pendente: "a vencer", atrasado: "atrasado" };

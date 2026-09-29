@@ -46,26 +46,48 @@ interface FinalizarBody {
   vencimento?: string;
 }
 
-// GET /ordens — lista as O.S. da oficina, já com serviços e peças agregados
-// (o dashboard precisa disso pra calcular "clientes sem retorno" e afins)
-router.get("/", requireAuth, requireEquipe, async (req, res) => {
-  const { oficinaId } = getAuth(req);
+// Busca as O.S. da oficina (ou uma só, se osId for informado) já com os
+// itens. Nome e preço de cada serviço/peça vêm das tabelas de itens da
+// O.S., que guardam o preço CONGELADO no dia em que a O.S. foi aberta —
+// assim um reajuste no catálogo não muda O.S. antigas.
+async function buscarOrdens(oficinaId: number, osId?: number | string) {
+  const params: unknown[] = [oficinaId];
+  let filtro = "";
+  if (osId !== undefined) {
+    params.push(osId);
+    filtro = "AND os.id = $2";
+  }
   const resultado = await db.query(
     `SELECT os.*, c.nome AS cliente_nome, v.modelo AS veiculo_modelo, v.placa AS veiculo_placa,
-       COALESCE(array_agg(DISTINCT ois.servico_id) FILTER (WHERE ois.servico_id IS NOT NULL), '{}') AS servicos_ids,
-       COALESCE(json_agg(DISTINCT jsonb_build_object('produtoId', oip.produto_id, 'quantidade', oip.quantidade))
-         FILTER (WHERE oip.produto_id IS NOT NULL), '[]') AS pecas_utilizadas
+       COALESCE(
+         (SELECT array_agg(ois.servico_id ORDER BY ois.id) FROM os_itens_servicos ois WHERE ois.os_id = os.id),
+         '{}') AS servicos_ids,
+       COALESCE(
+         (SELECT json_agg(json_build_object('servicoId', ois.servico_id, 'nome', s.nome, 'preco', ois.preco) ORDER BY ois.id)
+            FROM os_itens_servicos ois JOIN servicos s ON s.id = ois.servico_id
+           WHERE ois.os_id = os.id),
+         '[]') AS itens_servicos,
+       COALESCE(
+         (SELECT json_agg(json_build_object('produtoId', oip.produto_id, 'nome', p.nome, 'quantidade', oip.quantidade,
+                                            'precoUnitario', oip.preco_unitario) ORDER BY oip.id)
+            FROM os_itens_produtos oip JOIN produtos p ON p.id = oip.produto_id
+           WHERE oip.os_id = os.id),
+         '[]') AS pecas_utilizadas
      FROM ordens_servico os
      JOIN clientes c ON c.id = os.cliente_id
      JOIN veiculos v ON v.id = os.veiculo_id
-     LEFT JOIN os_itens_servicos ois ON ois.os_id = os.id
-     LEFT JOIN os_itens_produtos oip ON oip.os_id = os.id
-     WHERE os.oficina_id = $1
-     GROUP BY os.id, c.nome, v.modelo, v.placa
+     WHERE os.oficina_id = $1 ${filtro}
      ORDER BY os.criado_em DESC`,
-    [oficinaId]
+    params
   );
-  res.json(resultado.rows);
+  return resultado.rows;
+}
+
+// GET /ordens — lista as O.S. da oficina, já com serviços e peças
+// (o dashboard precisa disso pra calcular "clientes sem retorno" e afins)
+router.get("/", requireAuth, requireEquipe, async (req, res) => {
+  const { oficinaId } = getAuth(req);
+  res.json(await buscarOrdens(oficinaId));
 });
 
 // GET /ordens/:id — detalhe com serviços, peças e pagamentos
@@ -209,11 +231,9 @@ router.post("/", requireAuth, requireEquipe, async (req, res) => {
       }`
     );
 
-    res.status(201).json({
-      ...osCriada,
-      servicos_ids: servicosComPreco.map((s) => s.id),
-      pecas_utilizadas: pecasComPreco.map((p) => ({ produtoId: p.produtoId, quantidade: p.quantidade })),
-    });
+    // devolve no mesmo formato da listagem (com nome e preço dos itens)
+    const [criada] = await buscarOrdens(auth.oficinaId, osCriada.id);
+    res.status(201).json(criada);
   } catch (e) {
     await client.query("ROLLBACK");
     console.error(e);

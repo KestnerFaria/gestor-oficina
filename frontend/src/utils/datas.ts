@@ -31,8 +31,11 @@ export function agoraISO(): string {
 }
 
 // "2026-09-28" → "28/09/2026". Sem data, devolve "-".
+// Se vier data e hora ("2026-09-28T00:00:00.000Z"), usa só a data —
+// sem isso a tela mostrava "28T00:00:00.000Z/09/2026".
 export function fmtData(iso: string | null | undefined): string {
-  return iso ? iso.split("-").reverse().join("/") : "-";
+  if (!iso) return "-";
+  return iso.slice(0, 10).split("-").reverse().join("/");
 }
 
 // "2026-09-28T14:35:10" → "28/09/2026 14:35". Só a data → "28/09/2026".

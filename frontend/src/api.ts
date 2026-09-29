@@ -91,6 +91,7 @@ export interface Ordem {
   clienteNome?: string;
   veiculoModelo?: string;
   veiculoPlaca?: string;
+  veiculoAno?: number | null;
   servicosIds?: Id[];
   pecasUtilizadas?: PecaUtilizada[];
   /** aliases usados pelas telas antigas */

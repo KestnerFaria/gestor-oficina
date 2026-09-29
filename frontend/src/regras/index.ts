@@ -60,3 +60,6 @@ export function seloDaCobranca(status: string): { label: string; tone: Tom } {
 export function cobrancaPaga(status: string): boolean {
   return STATUS_COBRANCA_PAGA.includes(status);
 }
+
+// Regras do dashboard e do financeiro
+export * from "./dashboard";

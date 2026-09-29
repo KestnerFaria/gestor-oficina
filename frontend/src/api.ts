@@ -115,6 +115,7 @@ export interface Pagamento {
   pagoEm: string | null; // AAAA-MM-DD
   forma: FormaPagamento | null;
   documento: string | null;
+  recebidoPor: Id | null;
   comprovanteUrl: string | null;
   comprovante: Comprovante | null;
   osNumero?: string;

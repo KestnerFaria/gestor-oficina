@@ -63,3 +63,6 @@ export function cobrancaPaga(status: string): boolean {
 
 // Regras do dashboard e do financeiro
 export * from "./dashboard";
+
+// Regras da ordem de serviço
+export * from "./ordens";

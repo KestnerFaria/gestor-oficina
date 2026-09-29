@@ -197,13 +197,17 @@ export interface CadastroOficinaResposta {
 // Erro com o código que o backend manda (ex: "assinatura_pendente")
 export class ApiError extends Error {
   codigo?: string;
+  /** status HTTP da resposta (ex: 402) */
   status: number;
+  /** quando a assinatura bloqueia o acesso: "atrasada" ou "cancelada" */
+  assinaturaStatus?: StatusAssinatura;
 
-  constructor(mensagem: string, status: number, codigo?: string) {
+  constructor(mensagem: string, status: number, codigo?: string, assinaturaStatus?: StatusAssinatura) {
     super(mensagem);
     this.name = "ApiError";
     this.status = status;
     this.codigo = codigo;
+    this.assinaturaStatus = assinaturaStatus;
   }
 }
 
@@ -236,13 +240,17 @@ async function apiFetch<T>(path: string, { method = "GET", body, token }: { meth
   });
 
   const texto = await resposta.text();
-  const dados = texto ? (JSON.parse(texto) as { mensagem?: string; erro?: string } | null) : null;
+  const dados = texto ? (JSON.parse(texto) as { mensagem?: string; erro?: string; status?: StatusAssinatura } | null) : null;
 
   if (!resposta.ok) {
     throw new ApiError(
       dados?.mensagem || dados?.erro || `erro na requisição (${resposta.status})`,
       resposta.status,
-      dados?.erro // ex: "assinatura_pendente" — usado pra mostrar uma tela específica
+      dados?.erro, // ex: "assinatura_pendente" — usado pra mostrar uma tela específica
+      // o backend manda o status da assinatura no corpo do 402. Sem guardar
+      // isso, a tela de bloqueio não sabia que era cancelamento e não
+      // oferecia "reativar": a oficina cancelada ficava presa.
+      dados?.erro === "assinatura_pendente" ? dados.status : undefined
     );
   }
   return toCamel(dados) as T;

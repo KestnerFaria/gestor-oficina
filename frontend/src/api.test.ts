@@ -60,4 +60,13 @@ describe("apiFetch", () => {
       status: 402,
     });
   });
+
+  it("guarda o status da assinatura que vem no corpo do 402", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ erro: "assinatura_pendente", mensagem: "cancelada", status: "cancelada" }), { status: 402 }))
+    );
+
+    await expect(api.listarClientes("token")).rejects.toMatchObject({ status: 402, assinaturaStatus: "cancelada" });
+  });
 });

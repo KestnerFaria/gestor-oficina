@@ -22,10 +22,13 @@ router.get("/minha", requireAuth, async (req, res) => {
 });
 
 // GET /oficinas/minha/assinatura — status do teste grátis / cobrança
+// O "::date" garante o formato AAAA-MM-DD mesmo em bancos antigos em que
+// a coluna foi criada como TIMESTAMP (em produção a tela chegou a mostrar
+// "11T00:00:00.000Z/09/2026").
 router.get("/minha/assinatura", requireAuth, requireAdmin, async (req, res) => {
   const { oficinaId } = getAuth(req);
   const r = await db.query<AssinaturaRow>(
-    "SELECT status, valor, trial_termina_em FROM assinaturas WHERE oficina_id = $1",
+    "SELECT status, valor, trial_termina_em::date AS trial_termina_em FROM assinaturas WHERE oficina_id = $1",
     [oficinaId]
   );
   res.json(r.rows[0] || null);
@@ -84,7 +87,7 @@ router.post("/minha/assinatura/configurar", requireAuth, requireAdmin, async (re
 
   try {
     const assinaturaAtual = await db.query<AssinaturaRow>(
-      "SELECT status, valor, trial_termina_em FROM assinaturas WHERE oficina_id = $1",
+      "SELECT status, valor, trial_termina_em::date AS trial_termina_em FROM assinaturas WHERE oficina_id = $1",
       [auth.oficinaId]
     );
     const dados = assinaturaAtual.rows[0];

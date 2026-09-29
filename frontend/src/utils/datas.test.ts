@@ -44,6 +44,13 @@ describe("fmtData", () => {
     expect(fmtData("2026-09-28")).toBe("28/09/2026");
   });
 
+  // Bug de produção: a API mandou um timestamp completo e a tela mostrou
+  // "11T00:00:00.000Z/09/2026". Com data e hora, usamos só a data.
+  it("usa só a data quando recebe data e hora", () => {
+    expect(fmtData("2026-09-11T00:00:00.000Z")).toBe("11/09/2026");
+    expect(fmtData("2026-09-11T14:35:10")).toBe("11/09/2026");
+  });
+
   it("mostra um traço quando não há data", () => {
     expect(fmtData(null)).toBe("-");
     expect(fmtData(undefined)).toBe("-");

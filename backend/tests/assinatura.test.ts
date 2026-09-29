@@ -85,6 +85,33 @@ describe("configurar assinatura depois (tela dados da oficina)", () => {
   });
 });
 
+describe("tela minha assinatura", () => {
+  it("devolve o fim do teste grátis como AAAA-MM-DD", async () => {
+    asaasNoAr();
+    const { token } = await criarOficina();
+
+    const res = await api.get("/oficinas/minha/assinatura").set(auth(token));
+
+    expect(res.body.trial_termina_em).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  // Bug de produção: lá a coluna estava como TIMESTAMP (banco criado com
+  // uma versão antiga do schema) e a tela mostrava
+  // "até 11T00:00:00.000Z/09/2026". A data tem que sair certa mesmo assim.
+  it("devolve AAAA-MM-DD mesmo se a coluna no banco for TIMESTAMP", async () => {
+    asaasNoAr();
+    const { token } = await criarOficina();
+    await pool.query("ALTER TABLE assinaturas ALTER COLUMN trial_termina_em TYPE TIMESTAMP");
+    try {
+      const res = await api.get("/oficinas/minha/assinatura").set(auth(token));
+
+      expect(res.body.trial_termina_em).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    } finally {
+      await pool.query("ALTER TABLE assinaturas ALTER COLUMN trial_termina_em TYPE DATE");
+    }
+  });
+});
+
 describe("cancelamento e bloqueio", () => {
   it("cancelar bloqueia a equipe com status 402, mas libera a tela da oficina", async () => {
     asaasNoAr();

@@ -74,6 +74,16 @@ export interface Produto {
 export interface PecaUtilizada {
   produtoId: Id;
   quantidade: number;
+  /** nome e preço gravados na O.S. (preço do dia em que ela foi aberta) */
+  nome?: string;
+  precoUnitario?: number;
+}
+
+export interface ItemServicoOS {
+  servicoId: Id;
+  nome: string;
+  /** preço gravado na O.S. (preço do dia em que ela foi aberta) */
+  preco: number;
 }
 
 export interface Ordem {
@@ -82,6 +92,7 @@ export interface Ordem {
   clienteId: Id;
   veiculoId: Id;
   mecanicoId: Id | null;
+  criadoPor: Id | null;
   status: StatusOS;
   kmEntrada: string | null;
   descricaoProblema: string;
@@ -95,6 +106,7 @@ export interface Ordem {
   veiculoPlaca?: string;
   veiculoAno?: number | null;
   servicosIds?: Id[];
+  itensServicos?: ItemServicoOS[];
   pecasUtilizadas?: PecaUtilizada[];
   /** aliases usados pelas telas antigas */
   descricao: string;

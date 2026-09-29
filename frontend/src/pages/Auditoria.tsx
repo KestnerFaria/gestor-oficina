@@ -1,17 +1,9 @@
 import { useState } from "react";
 import type { Id, RegistroAuditoria, Usuario } from "../api";
 import { Badge } from "../components/ui";
-import type { Tom } from "../constants";
+import { tomDaAcao } from "../regras";
 import { C, inputStyle } from "../styles/theme";
 import { fmtDataHora } from "../utils/datas";
-
-// Cor do selo conforme o tipo de ação registrada
-export function tomDaAcao(acao: string): Tom {
-  if (acao.includes("excluiu") || acao.includes("estornou")) return "danger";
-  if (acao.includes("recebeu")) return "ok";
-  if (acao.includes("alterou")) return "warn";
-  return "accent";
-}
 
 interface AuditoriaProps {
   auditoria: RegistroAuditoria[];

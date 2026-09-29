@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Ordem, Pagamento, RegistroAuditoria, Usuario } from "../api";
-import { Auditoria, tomDaAcao } from "./Auditoria";
+import { Auditoria } from "./Auditoria";
 import { CadastroOficina } from "./CadastroOficina";
-import { PortalCliente, situacaoDoPagamento } from "./PortalCliente";
+import { PortalCliente } from "./PortalCliente";
 import { TelaAssinaturaBloqueada } from "./TelaAssinaturaBloqueada";
 import { TelaLogin } from "./TelaLogin";
 
@@ -13,39 +13,6 @@ const nadaAsync = async () => {};
 
 afterEach(() => {
   vi.useRealTimers();
-});
-
-describe("situacaoDoPagamento", () => {
-  const hoje = "2026-09-28";
-
-  it("pago quando tem data de pagamento", () => {
-    expect(situacaoDoPagamento({ pagoEm: "2026-09-01", vencimento: "2026-08-01" }, hoje)).toBe("pago");
-  });
-
-  it("atrasado quando venceu antes de hoje e não foi pago", () => {
-    expect(situacaoDoPagamento({ pagoEm: null, vencimento: "2026-09-27" }, hoje)).toBe("atrasado");
-  });
-
-  it("a vencer quando vence hoje ou depois", () => {
-    expect(situacaoDoPagamento({ pagoEm: null, vencimento: "2026-09-28" }, hoje)).toBe("pendente");
-    expect(situacaoDoPagamento({ pagoEm: null, vencimento: "2026-10-10" }, hoje)).toBe("pendente");
-  });
-});
-
-describe("tomDaAcao", () => {
-  it("vermelho para exclusões e estornos", () => {
-    expect(tomDaAcao("excluiu")).toBe("danger");
-    expect(tomDaAcao("estornou pagamento")).toBe("danger");
-  });
-
-  it("verde para recebimentos, amarelo para alterações", () => {
-    expect(tomDaAcao("recebeu pagamento")).toBe("ok");
-    expect(tomDaAcao("alterou")).toBe("warn");
-  });
-
-  it("laranja para o resto", () => {
-    expect(tomDaAcao("criou")).toBe("accent");
-  });
 });
 
 describe("TelaLogin", () => {

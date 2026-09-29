@@ -22,6 +22,8 @@ export interface Oficina {
   telefone: string;
   endereco: string | null;
   logoUrl: string | null;
+  /** alias usado pelas telas (a API chama de logo_url) */
+  logo: string | null;
 }
 
 export interface Usuario {
@@ -237,6 +239,14 @@ async function apiFetch<T>(path: string, { method = "GET", body, token }: { meth
 // pequenos adaptadores pra manter os nomes que o resto do app já usa
 // (assim não precisamos reescrever componentes por causa de nomes)
 // ------------------------------------------------------------
+// A API chama o campo de logo_url, mas as telas (e o PUT /oficinas/minha)
+// usam "logo". Sem esse alias a logo nunca aparecia na tela, e salvar os
+// dados da oficina mandava a logo vazia, apagando-a do banco.
+function adaptarOficina<T extends Oficina | null>(o: T): T {
+  if (!o) return o;
+  return { ...o, logo: o.logoUrl };
+}
+
 function adaptarOrdem(o: Ordem): Ordem {
   return { ...o, descricao: o.descricaoProblema, km: o.kmEntrada };
 }
@@ -267,13 +277,17 @@ type Corpo = Record<string, unknown>;
 
 export const api = {
   // ---- auth ----
-  cadastrarOficina: (body: Corpo) => apiFetch<CadastroOficinaResposta>("/auth/cadastrar-oficina", { method: "POST", body }),
+  cadastrarOficina: async (body: Corpo) => {
+    const resposta = await apiFetch<CadastroOficinaResposta>("/auth/cadastrar-oficina", { method: "POST", body });
+    return { ...resposta, oficina: adaptarOficina(resposta.oficina) };
+  },
   loginEquipe: (body: { email: string; senha: string }) => apiFetch<LoginEquipeResposta>("/auth/login-equipe", { method: "POST", body }),
   loginCliente: (body: { email: string; senha: string }) => apiFetch<LoginClienteResposta>("/auth/login-cliente", { method: "POST", body }),
 
   // ---- oficina e assinatura ----
-  minhaOficina: (token: string) => apiFetch<Oficina | null>("/oficinas/minha", { token }),
-  atualizarOficina: (token: string, body: Corpo) => apiFetch<Oficina>("/oficinas/minha", { method: "PUT", token, body }),
+  minhaOficina: async (token: string) => adaptarOficina(await apiFetch<Oficina | null>("/oficinas/minha", { token })),
+  atualizarOficina: async (token: string, body: Corpo) =>
+    adaptarOficina(await apiFetch<Oficina>("/oficinas/minha", { method: "PUT", token, body })),
   verAssinatura: (token: string) => apiFetch<Assinatura | null>("/oficinas/minha/assinatura", { token }),
   listarCobrancasAssinatura: (token: string) => apiFetch<CobrancaAssinatura[]>("/oficinas/minha/assinatura/cobrancas", { token }),
   configurarAssinatura: (token: string) => apiFetch<{ ok: true }>("/oficinas/minha/assinatura/configurar", { method: "POST", token }),

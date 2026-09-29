@@ -66,3 +66,6 @@ export * from "./dashboard";
 
 // Regras da ordem de serviço
 export * from "./ordens";
+
+// Permissões por perfil
+export * from "./permissoes";

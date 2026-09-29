@@ -36,7 +36,8 @@ export interface AcoesClientes {
   criarCliente: (dados: NovoCliente) => Promise<void>;
   editarCliente: (id: Id, dados: ClienteEmEdicao) => Promise<void>;
   excluirCliente: (id: Id) => Promise<void>;
-  criarVeiculo: (dados: Omit<NovoVeiculo, "ano"> & { clienteId: Id; ano: number | null }) => Promise<void>;
+  // a tela não usa o retorno (a Nova O.S. usa o veículo criado)
+  criarVeiculo: (dados: Omit<NovoVeiculo, "ano"> & { clienteId: Id; ano: number | null }) => Promise<unknown>;
   editarVeiculo: (id: Id, dados: VeiculoEmEdicao) => Promise<void>;
   excluirVeiculo: (id: Id) => Promise<void>;
 }

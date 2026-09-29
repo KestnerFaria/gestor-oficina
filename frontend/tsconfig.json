@@ -11,12 +11,7 @@
     "skipLibCheck": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "types": ["vite/client"],
-
-    // Migração gradual: arquivos .jsx continuam funcionando sem checagem
-    // de tipos. Converta um componente por vez para .tsx.
-    "allowJs": true,
-    "checkJs": false
+    "types": ["vite/client"]
   },
   "include": ["src", "vite.config.ts"]
 }

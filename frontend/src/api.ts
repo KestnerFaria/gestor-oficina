@@ -284,7 +284,7 @@ function paraApiProduto(dados: ProdutoForm) {
 function adaptarPagamento(p: Pagamento): Pagamento {
   return { ...p, comprovante: p.comprovanteUrl ? { nome: "comprovante", tipo: "", dados: p.comprovanteUrl } : null };
 }
-type PagamentoForm = Record<string, unknown> & { comprovante?: Comprovante | null };
+type PagamentoForm = { comprovante?: Comprovante | null } & object;
 function paraApiPagamento(dados: PagamentoForm) {
   const { comprovante, ...resto } = dados;
   return { ...resto, comprovante: comprovante?.dados || null };
@@ -294,7 +294,8 @@ function adaptarAuditoria(a: RegistroAuditoria): RegistroAuditoria {
   return { ...a, em: a.criadoEm };
 }
 
-type Corpo = Record<string, unknown>;
+// corpo de uma requisição: qualquer objeto (interfaces das telas incluídas)
+type Corpo = object;
 
 export const api = {
   // ---- auth ----

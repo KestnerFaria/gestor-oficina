@@ -131,3 +131,77 @@ describe("assinatura cancelada", () => {
     expect(chamadas).toContain("POST /oficinas/minha/assinatura/configurar");
   });
 });
+
+describe("perfis", () => {
+  it("mecânico não vê financeiro, despesas, assinatura, equipe nem auditoria", async () => {
+    const mecanico = { ...usuario, id: 2, nome: "Zé", perfil: "mecanico" };
+    localStorage.setItem("oficina_sessao", JSON.stringify({ tipo: "equipe", token: "tk", usuario: mecanico }));
+    const chamadas = simularServidor(() => dadosEmDia);
+    render(<App />);
+
+    await screen.findByText("visão geral");
+
+    for (const aba of ["financeiro", "despesas mensais", "minha assinatura", "acessos da equipe", "auditoria"]) {
+      expect(screen.queryByText(aba)).toBeNull();
+    }
+    expect(screen.getByText("nova O.S.")).toBeTruthy();
+    // e nem pede os pagamentos ao servidor
+    expect(chamadas).not.toContain("GET /pagamentos");
+  });
+});
+
+describe("sessão salva", () => {
+  it("ignora uma sessão corrompida no navegador e mostra o login", () => {
+    localStorage.setItem("oficina_sessao", "{isso não é json");
+    render(<App />);
+
+    expect(screen.getByText("GESTOR DE OFICINA")).toBeTruthy();
+    expect(localStorage.getItem("oficina_sessao")).toBeNull();
+  });
+
+  it("volta para o login quando o token salvo expirou", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    localStorage.setItem("oficina_sessao", JSON.stringify({ tipo: "equipe", token: "velho", usuario }));
+    const expirado: Resposta = { status: 401, corpo: { erro: "token inválido ou expirado" } };
+    simularServidor(() => Object.fromEntries(Object.keys(dadosEmDia).map((k) => [k, expirado])));
+    render(<App />);
+
+    expect(await screen.findByText("GESTOR DE OFICINA")).toBeTruthy();
+    expect(localStorage.getItem("oficina_sessao")).toBeNull();
+  });
+});
+
+describe("assinatura atrasada", () => {
+  it("oferece verificar o pagamento de novo e libera quando foi pago", async () => {
+    let pago = false;
+    const atrasada: Resposta = { status: 402, corpo: { erro: "assinatura_pendente", mensagem: "assinatura atrasada", status: "atrasada" } };
+    localStorage.setItem("oficina_sessao", JSON.stringify({ tipo: "equipe", token: "tk", usuario }));
+    simularServidor(() => (pago ? dadosEmDia : { ...dadosEmDia, "GET /clientes": atrasada }));
+    render(<App />);
+
+    expect(await screen.findByText("assinatura pendente")).toBeTruthy();
+    pago = true;
+    await userEvent.setup().click(screen.getByRole("button", { name: "já paguei, verificar novamente" }));
+
+    expect(await screen.findByText("visão geral")).toBeTruthy();
+  });
+
+  it("troca para a tela de bloqueio se a assinatura vencer durante o uso", async () => {
+    let vencida = false;
+    const atrasada: Resposta = { status: 402, corpo: { erro: "assinatura_pendente", mensagem: "assinatura atrasada", status: "atrasada" } };
+    localStorage.setItem("oficina_sessao", JSON.stringify({ tipo: "equipe", token: "tk", usuario }));
+    simularServidor(() => ({ ...dadosEmDia, "POST /clientes": vencida ? atrasada : { corpo: {} } }));
+    render(<App />);
+    const u = userEvent.setup();
+
+    await screen.findByText("visão geral");
+    await u.click(screen.getByText("clientes e veículos"));
+    await u.click(screen.getByText("+ novo cliente"));
+    await u.type(screen.getByPlaceholderText("nome completo"), "Maria");
+    await u.type(screen.getByPlaceholderText("telefone"), "1199");
+    vencida = true;
+    await u.click(screen.getByText("salvar cliente"));
+
+    expect(await screen.findByText("assinatura pendente")).toBeTruthy();
+  });
+});

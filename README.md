@@ -25,13 +25,13 @@ Each shop gets its own isolated workspace to manage customers, vehicles, service
 
 | Layer | Tech |
 |---|---|
-| Frontend | React 19, Vite, TypeScript (gradual migration) |
+| Frontend | React 19, Vite, TypeScript (strict) |
 | Backend | Node.js, Express 5, TypeScript (strict) |
 | Database | PostgreSQL (triggers, enums, views) |
 | Auth | JWT + bcrypt |
 | Payments | Asaas REST API + webhooks |
 | Hosting | Vercel (frontend), Railway (API + database) |
-| Tests | Vitest + Supertest against a real PostgreSQL (60 integration tests) |
+| Tests | Backend: Vitest + Supertest against a real PostgreSQL (64 tests). Frontend: Vitest + Testing Library, from pure business rules to full-app flows with a simulated server (100 tests) |
 | CI | GitHub Actions (type check, tests, lint, build) |
 
 ## Architecture
@@ -60,8 +60,13 @@ Each shop gets its own isolated workspace to manage customers, vehicles, service
 │       └── utils/
 └── frontend/
     └── src/
+        ├── OficinaApp.tsx      # root: login, session and which area to show
         ├── api.ts              # typed API client
-        └── OficinaApp.jsx      # UI (being migrated to .tsx)
+        ├── hooks/              # session, data loading and API actions
+        ├── pages/              # one file per screen (ordens/ for service orders)
+        ├── components/ui/      # shared UI pieces (Badge, Field, modal...)
+        ├── regras/             # business rules as pure, tested functions
+        └── utils/              # dates, errors, file reading
 ```
 
 ## Running locally
@@ -102,11 +107,15 @@ A few problems solved along the way:
 - **Async errors** — upgrading to Express 5 routes rejected promises to the error handler instead of crashing the process.
 - **Tenant isolation** — foreign keys sent by the client (customer, vehicle, parts) are verified to belong to the caller's workshop before use.
 - **Idempotent billing setup** — if Asaas is unavailable at sign-up, the account still works and the admin can retry billing setup later.
+- **Frozen prices** — each service order stores the price of every item on the day it was opened. The screens used to look up today's catalog price, so a price change rewrote old orders; they now read the stored price.
+- **Time zones** — "today" was computed with `toISOString()` (UTC), so after 9 PM in Brazil the app already thought it was tomorrow. Dates now use the local time zone and are tested with a fake clock.
+- **Component identity** — a component declared inside another was recreated on every keystroke, so inputs lost focus after one letter. Caught by an interaction test that types like a real user.
+- **Safe refactoring** — the 3,000-line UI was split in small PRs; for each one, the same tests were run against the old and the new code to prove behavior did not change.
 
 ## Roadmap
 
-- [ ] Finish migrating `OficinaApp.jsx` into typed `.tsx` components
-- [x] Automated integration tests (Vitest + Supertest), running in CI
+- [x] Frontend fully migrated to TypeScript, from one 3,000-line file to typed components
+- [x] Automated tests for backend and frontend, running in CI
 - [ ] Request validation with Zod and rate limiting
 - [ ] Move logos and receipts from base64 to object storage
 
